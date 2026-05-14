@@ -15,7 +15,7 @@
 import XCTest
 
 private final class PassingUiTestObservation: NSObject, XCTestObservation {
-  private static let expectedTestNamesEnvKey = "EXPECTED_TEST_NAMES"
+  private static let expectedTestNamesEnvKey = "EXPECTED_UI_TEST_NAMES"
 
   private let expectedTestNames: Set<String>
   private var finishedTestNames = Set<String>()
@@ -80,6 +80,7 @@ private final class PassingUiTestObservation: NSObject, XCTestObservation {
   }
 }
 
+@objc(PassingUiTest)
 final class PassingUiTest: XCTestCase {
   private static let observation = PassingUiTestObservation(
     expectedTestNames: PassingUiTestObservation.expectedTestNamesFromEnvironment()

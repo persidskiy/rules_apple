@@ -4221,7 +4221,7 @@ ios_ui_test(
     size = "large",
     env = {
         "ENV_KEY1": "ENV_VALUE2",
-        "EXPECTED_TEST_NAMES": "testPass,testPass2,testEnv",
+        "EXPECTED_UI_TEST_NAMES": "testPass;testPass2;testEnv",
     },
     infoplists = [
         "//test/starlark_tests/resources:Info.plist",
@@ -4239,7 +4239,7 @@ ios_ui_test(
     name = "ios_test_runner_ui_test_with_filter",
     size = "large",
     env = {
-        "EXPECTED_TEST_NAMES": "testPass2",
+        "EXPECTED_UI_TEST_NAMES": "testPass2",
         "TESTBRIDGE_TEST_ONLY": "PassingUiTest/testPass2",
     },
     infoplists = [
