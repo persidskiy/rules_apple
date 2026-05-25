@@ -885,6 +885,42 @@ def apple_xcframework_test_suite(name):
         tags = [name],
     )
 
+    # Verify that an apple_xcframework with avoid_deps bundles correctly. The
+    # avoid_deps target's object code is excluded from the link inputs, which
+    # is what enables cascading multiple dynamic XCFrameworks where one
+    # framework links against another at runtime.
+    archive_contents_test(
+        name = "{}_ios_avoid_deps_test".format(name),
+        build_type = "device",
+        compilation_mode = "opt",
+        target_under_test = "//test/starlark_tests/targets_under_test/apple:ios_dynamic_xcfmwk_with_avoid_deps",
+        contains = [
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcfmwk_with_avoid_deps.framework/ios_dynamic_xcfmwk_with_avoid_deps",
+            "$BUNDLE_ROOT/ios-arm64_x86_64-simulator/ios_dynamic_xcfmwk_with_avoid_deps.framework/ios_dynamic_xcfmwk_with_avoid_deps",
+            "$BUNDLE_ROOT/Info.plist",
+        ],
+        tags = [name],
+    )
+
+    # Verify that resources from a target in avoid_deps are not bundled into the
+    # framework's resource bundle.
+    archive_contents_test(
+        name = "{}_ios_avoid_deps_bundles_test".format(name),
+        build_type = "device",
+        compilation_mode = "opt",
+        target_under_test = "//test/starlark_tests/targets_under_test/apple:ios_dynamic_xcframework_bundling_with_avoid_deps",
+        contains = [
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcframework_bundling_with_avoid_deps.framework/ios_dynamic_xcframework_bundling_with_avoid_deps",
+            "$BUNDLE_ROOT/ios-arm64_x86_64-simulator/ios_dynamic_xcframework_bundling_with_avoid_deps.framework/ios_dynamic_xcframework_bundling_with_avoid_deps",
+            "$BUNDLE_ROOT/Info.plist",
+        ],
+        not_contains = [
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcframework_bundling_with_avoid_deps.framework/resource_bundle.bundle",
+            "$BUNDLE_ROOT/ios-arm64_x86_64-simulator/ios_dynamic_xcframework_bundling_with_avoid_deps.framework/resource_bundle.bundle",
+        ],
+        tags = [name],
+    )
+
     native.test_suite(
         name = name,
         tags = [name],

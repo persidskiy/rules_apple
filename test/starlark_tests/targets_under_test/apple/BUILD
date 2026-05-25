@@ -365,6 +365,48 @@ apple_xcframework(
 )
 
 apple_xcframework(
+    name = "ios_dynamic_xcfmwk_with_avoid_deps",
+    avoid_deps = [":StaticFmwkLowerLib"],
+    bundle_id = "com.google.example",
+    infoplists = [
+        "//test/starlark_tests/resources:Info.plist",
+    ],
+    ios = {
+        "simulator": [
+            "x86_64",
+            "arm64",
+        ],
+        "device": ["arm64"],
+    },
+    minimum_os_versions = {
+        "ios": common.min_os_ios.baseline,
+    },
+    tags = common.fixture_tags,
+    deps = [":StaticFmwkUpperLib"],
+)
+
+apple_xcframework(
+    name = "ios_dynamic_xcframework_bundling_with_avoid_deps",
+    avoid_deps = [":fmwk_lib_with_resources"],
+    bundle_id = "com.google.example",
+    infoplists = [
+        "//test/starlark_tests/resources:Info.plist",
+    ],
+    ios = {
+        "simulator": [
+            "x86_64",
+            "arm64",
+        ],
+        "device": ["arm64"],
+    },
+    minimum_os_versions = {
+        "ios": common.min_os_ios.baseline,
+    },
+    tags = common.fixture_tags,
+    deps = [":fmwk_lib_with_resources_upper_lib"],
+)
+
+apple_xcframework(
     name = "ios_dynamic_xcframework_private_hdrs",
     bundle_id = "com.google.example",
     infoplists = [

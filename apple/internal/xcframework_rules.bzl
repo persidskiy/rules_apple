@@ -607,6 +607,7 @@ def _apple_xcframework_impl(ctx):
 
     link_result = linking_support.register_binary_linking_action(
         ctx,
+        avoid_deps = ctx.attr.avoid_deps,
         cc_toolchains = cc_toolchain_forwarder,
         # Frameworks do not have entitlements.
         entitlements = None,
@@ -706,6 +707,11 @@ def _apple_xcframework_impl(ctx):
             split_attr = ctx.split_attr,
             split_attr_keys = link_output.split_attr_keys,
         )
+        targets_to_avoid = _unioned_attrs(
+            attr_names = ["avoid_deps"],
+            split_attr = ctx.split_attr,
+            split_attr_keys = link_output.split_attr_keys,
+        )
 
         top_level_infoplists = resources.collect(
             attr = ctx.split_attr,
@@ -781,6 +787,7 @@ def _apple_xcframework_impl(ctx):
                 resource_deps = resource_deps,
                 rule_descriptor = rule_descriptor,
                 rule_label = label,
+                targets_to_avoid = targets_to_avoid,
                 top_level_infoplists = top_level_infoplists,
                 top_level_resources = top_level_resources,
                 version = ctx.attr.version,
@@ -800,6 +807,7 @@ def _apple_xcframework_impl(ctx):
             processor_partials.append(
                 partials.swift_framework_partial(
                     actions = actions,
+                    avoid_deps = ctx.attr.avoid_deps,
                     bundle_name = bundle_name,
                     label_name = label.name,
                     output_discriminator = library_identifier,
@@ -986,6 +994,18 @@ Pass `--apple_generate_dsym` to include dSYM bundles in the XCFramework.
                     "//apple/internal:environment_plist_tvos",
                     "//apple/internal:environment_plist_visionos",
                 ],
+            ),
+            "avoid_deps": attr.label_list(
+                aspects = [apple_resource_aspect],
+                allow_files = True,
+                cfg = transition_support.xcframework_transition,
+                mandatory = False,
+                doc = """
+A list of library targets on which this framework depends in order to compile, but the transitive
+closure of which will not be linked into the framework's binary, nor bundled into final XCFramework.
+This is the mechanism for cascading multiple `apple_xcframework` targets where one framework
+dynamically links against another at runtime.
+""",
             ),
             "bundle_id": attr.string(
                 mandatory = True,
