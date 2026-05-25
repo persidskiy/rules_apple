@@ -365,6 +365,29 @@ apple_xcframework(
 )
 
 apple_xcframework(
+    name = "ios_dynamic_xcframework_private_hdrs",
+    bundle_id = "com.google.example",
+    infoplists = [
+        "//test/starlark_tests/resources:Info.plist",
+    ],
+    ios = {
+        "simulator": ["x86_64"],
+        "device": ["arm64"],
+    },
+    minimum_os_versions = {
+        "ios": common.min_os_ios.baseline,
+    },
+    private_hdrs = [
+        "//test/starlark_tests/resources:common.h",
+    ],
+    public_hdrs = [
+        "//test/starlark_tests/resources:shared.h",
+    ],
+    tags = common.fixture_tags,
+    deps = [":fmwk_lib"],
+)
+
+apple_xcframework(
     name = "ios_dynamic_xcframework_custom_bundle_name",
     bundle_id = "com.google.example",
     bundle_name = "CustomBundleName",
@@ -410,6 +433,28 @@ apple_xcframework(
     ],
     tags = common.fixture_tags,
     umbrella_header = ":generate_umbrella_header",
+    deps = [":fmwk_lib"],
+)
+
+apple_static_xcframework(
+    name = "ios_static_xcframework_private_hdrs",
+    ios = {
+        "simulator": [
+            "x86_64",
+            "arm64",
+        ],
+        "device": ["arm64"],
+    },
+    minimum_os_versions = {
+        "ios": "9.0",
+    },
+    private_hdrs = [
+        "//test/starlark_tests/resources:common.h",
+    ],
+    public_hdrs = [
+        "//test/starlark_tests/resources:shared.h",
+    ],
+    tags = common.fixture_tags,
     deps = [":fmwk_lib"],
 )
 

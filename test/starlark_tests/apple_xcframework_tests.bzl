@@ -664,6 +664,20 @@ def apple_xcframework_test_suite(name):
     )
 
     archive_contents_test(
+        name = "{}_private_hdrs_test".format(name),
+        build_type = "device",
+        target_under_test = "//test/starlark_tests/targets_under_test/apple:ios_dynamic_xcframework_private_hdrs",
+        contains = [
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcframework_private_hdrs.framework/PrivateHeaders/common.h",
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcframework_private_hdrs.framework/Headers/shared.h",
+        ],
+        not_contains = [
+            "$BUNDLE_ROOT/ios-arm64/ios_dynamic_xcframework_private_hdrs.framework/Headers/common.h",
+        ],
+        tags = [name],
+    )
+
+    archive_contents_test(
         name = "{}_custom_umbrella_header_test".format(name),
         build_type = "device",
         target_under_test = "//test/starlark_tests/targets_under_test/apple:ios_dynamic_xcframework_umbrella_header",

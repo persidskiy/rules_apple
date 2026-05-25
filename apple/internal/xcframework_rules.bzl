@@ -806,6 +806,17 @@ def _apple_xcframework_impl(ctx):
                     swift_infos = link_output.framework_swift_infos,
                 ),
             )
+            if ctx.files.private_hdrs:
+                processor_partials.append(
+                    partials.framework_header_modulemap_partial(
+                        actions = actions,
+                        bundle_name = bundle_name,
+                        hdrs = [],
+                        label_name = label.name,
+                        output_discriminator = library_identifier,
+                        private_hdrs = ctx.files.private_hdrs,
+                    ),
+                )
         else:
             processor_partials.append(
                 partials.framework_header_modulemap_partial(
@@ -814,6 +825,7 @@ def _apple_xcframework_impl(ctx):
                     hdrs = ctx.files.public_hdrs,
                     label_name = label.name,
                     output_discriminator = library_identifier,
+                    private_hdrs = ctx.files.private_hdrs,
                     umbrella_header = ctx.file.umbrella_header,
                 ),
             )
@@ -1081,6 +1093,14 @@ each of these embedded frameworks. These header files will be embedded within ea
 typically in a subdirectory such as `Headers`.
 """,
             ),
+            "private_hdrs": attr.label_list(
+                allow_files = [".h"],
+                doc = """
+A list of files directly referencing header files to be embedded as private headers in each
+embedded framework, under the `PrivateHeaders` subdirectory. These headers are not exported via
+the umbrella header or the module map.
+""",
+            ),
             "version": attr.label(
                 providers = [[AppleBundleVersionInfo]],
                 doc = """
@@ -1170,6 +1190,20 @@ def _apple_static_xcframework_impl(ctx):
                     swift_infos = link_output.framework_swift_infos,
                 ),
             )
+            if ctx.files.private_hdrs:
+                private_header_artifacts = partial.call(partials.framework_header_modulemap_partial(
+                    actions = actions,
+                    bundle_name = bundle_name,
+                    framework_modulemap = True,
+                    hdrs = [],
+                    label_name = label.name,
+                    output_discriminator = library_identifier,
+                    private_hdrs = ctx.files.private_hdrs,
+                ))
+                interface_artifacts = struct(
+                    bundle_files = interface_artifacts.bundle_files +
+                                   private_header_artifacts.bundle_files,
+                )
         else:
             # Generate headers, and modulemaps
             sdk_frameworks = cc_info_support.get_sdk_frameworks(
@@ -1187,6 +1221,7 @@ def _apple_static_xcframework_impl(ctx):
                 hdrs = ctx.files.public_hdrs,
                 label_name = label.name,
                 output_discriminator = library_identifier,
+                private_hdrs = ctx.files.private_hdrs,
                 umbrella_header = ctx.file.umbrella_header,
                 sdk_frameworks = sdk_frameworks,
                 sdk_dylibs = sdk_dylibs,
@@ -1495,6 +1530,15 @@ dotted version number (for example, "8.0") as values, with their respective plat
 A list of files directly referencing header files to be used as the publicly visible interface for
 each of these embedded libraries. These header files will be embedded within each platform split,
 typically in a subdirectory such as `Headers`.
+""",
+            ),
+            "private_hdrs": attr.label_list(
+                allow_files = [".h"],
+                cfg = transition_support.xcframework_transition,
+                doc = """
+A list of files directly referencing header files to be embedded as private headers in each
+platform split, under the `PrivateHeaders` subdirectory. These headers are not exported via the
+umbrella header or the module map.
 """,
             ),
             "umbrella_header": attr.label(

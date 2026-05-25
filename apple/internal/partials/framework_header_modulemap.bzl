@@ -145,11 +145,17 @@ def _framework_header_modulemap_partial_impl(
         hdrs,
         label_name,
         output_discriminator,
+        private_hdrs,
         sdk_dylibs,
         sdk_frameworks,
         umbrella_header):
     """Implementation for the sdk framework headers and modulemaps partial."""
     bundle_files = []
+
+    if private_hdrs:
+        bundle_files.append(
+            (processor.location.bundle, "PrivateHeaders", depset(private_hdrs)),
+        )
 
     umbrella_header_name = None
     if umbrella_header:
@@ -223,6 +229,7 @@ def framework_header_modulemap_partial(
         hdrs,
         label_name,
         output_discriminator = None,
+        private_hdrs = [],
         sdk_dylibs = [],
         sdk_frameworks = [],
         umbrella_header = None):
@@ -239,6 +246,7 @@ def framework_header_modulemap_partial(
       label_name: Name of the target being built.
       output_discriminator: A string to differentiate between different target intermediate files
           or `None`.
+      private_hdrs: The list of private headers to bundle under `PrivateHeaders/`. Optional.
       sdk_dylibs: A list of dynamic libraries referenced by this framework.
       sdk_frameworks: A list of frameworks referenced by this framework.
       umbrella_header: An umbrella header to use instead of generating one. Optional.
@@ -255,6 +263,7 @@ def framework_header_modulemap_partial(
         hdrs = hdrs,
         label_name = label_name,
         output_discriminator = output_discriminator,
+        private_hdrs = private_hdrs,
         sdk_dylibs = sdk_dylibs,
         sdk_frameworks = sdk_frameworks,
         umbrella_header = umbrella_header,
