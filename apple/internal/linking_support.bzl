@@ -155,6 +155,7 @@ def _link_multi_arch_binary(
         extra_link_inputs,
         extra_requested_features,
         extra_disabled_features,
+        split_avoid_cc_infos,
         stamp):
     """Links a (potentially multi-architecture) binary targeting Apple platforms.
 
@@ -180,6 +181,8 @@ def _link_multi_arch_binary(
             to the linker action.
         extra_disabled_features: A list of strings: Extra disabled features to be passed
             to the linker action.
+        split_avoid_cc_infos: A dictionary of split transition keys to lists of `CcInfo`s, used
+            like `avoid_deps` but only for the binary of that split.
         stamp: Whether to include build information in the linked binary. If 1, build
             information is always included. If 0, build information is always excluded.
             If -1 (the default), then the behavior is determined by the --[no]stamp
@@ -261,7 +264,7 @@ def _link_multi_arch_binary(
                 attr_linkopts = attr_linkopts,
             )
 
-        cc_infos.append(CcInfo(
+        split_cc_info = CcInfo(
             compilation_context = cc_common.merge_compilation_contexts(
                 compilation_contexts =
                     common_variables.objc_compilation_context.cc_compilation_contexts,
@@ -269,13 +272,21 @@ def _link_multi_arch_binary(
             linking_context = cc_common.merge_linking_contexts(
                 linking_contexts = common_variables.objc_linking_context.cc_linking_contexts,
             ),
-        ))
+        )
+        cc_infos.append(split_cc_info)
+
+        split_avoid = split_avoid_cc_infos.get(split_transition_key, [])
+        cc_infos.extend(split_avoid)
+        split_avoid_linking_contexts = avoid_cc_linking_contexts + [
+            cc_info.linking_context
+            for cc_info in split_avoid
+        ]
 
         cc_linking_context = subtract_linking_contexts(
             owner = ctx.label,
             linking_contexts = common_variables.objc_linking_context.cc_linking_contexts +
-                               avoid_cc_linking_contexts,
-            avoid_dep_linking_contexts = avoid_cc_linking_contexts,
+                               split_avoid_linking_contexts,
+            avoid_dep_linking_contexts = split_avoid_linking_contexts,
             linkable_more_than_once_labels = depset(transitive = [
                 dep[LinkableMoreThanOnceInfo].labels
                 for dep in deps
@@ -332,11 +343,13 @@ def _link_multi_arch_binary(
 
         output = {
             "binary": executable,
+            "cc_info": split_cc_info,
             "platform": platform_info.target_os,
             "architecture": platform_info.target_arch,
             "environment": platform_info.target_environment,
             "dsym_binary": dsym_binary,
             "linkmap": linkmap,
+            "split_transition_key": split_transition_key,
         }
 
         outputs.append(struct(**output))
@@ -434,6 +447,7 @@ def _register_binary_linking_action(
         extra_disabled_features = [],
         platform_prerequisites = None,
         rule_descriptor = None,
+        split_avoid_cc_infos = {},
         stamp = -1):
     """Registers linking actions using the Starlark Apple binary linking API.
 
@@ -564,6 +578,7 @@ def _register_binary_linking_action(
         # TODO(321109350): Disable include scanning to work around issue with GrepIncludes actions
         # being routed to the wrong exec platform.
         extra_disabled_features = extra_disabled_features + ["cc_include_scanning"],
+        split_avoid_cc_infos = split_avoid_cc_infos,
         stamp = stamp,
     )
 
