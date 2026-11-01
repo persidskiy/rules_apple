@@ -20,6 +20,8 @@ load(
 )
 load("@bazel_skylib//lib:partial.bzl", "partial")
 load("@bazel_skylib//lib:paths.bzl", "paths")
+load("@rules_cc//cc/common:cc_common.bzl", "cc_common")
+load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
 load("@rules_swift//swift:swift.bzl", "SwiftInfo")
 load(
     "//apple:providers.bzl",
@@ -114,6 +116,19 @@ load(
 )
 
 files_utils = files
+
+_AppleXcframeworkLinkingInfo = provider(
+    doc = """
+Private provider of `apple_xcframework` that lets another `apple_xcframework` link against it, listing
+it in `frameworks`.
+""",
+    fields = {
+        "slices": """
+A dictionary of split transition keys to `CcInfo`s, each holding the framework binary of that split as
+a dynamic library, and the libraries linked into it.
+""",
+    },
+)
 
 def _has_non_system_swift_modules(*, target):
     """Indicates if the given target references any non-system Swift modules.
@@ -605,9 +620,28 @@ def _apple_xcframework_impl(ctx):
     # as this value is not used in the XCFramework's root Info.plist.
     nested_bundle_id = ctx.attr.bundle_id
 
+    # `avoid_deps` and `frameworks` are split per platform, so each binary only avoids the
+    # libraries of its own split and links the framework binaries of the same platform.
+    split_avoid_cc_infos = {}
+    for split_attr_key, avoid_deps in ctx.split_attr.avoid_deps.items():
+        split_avoid_cc_infos.setdefault(split_attr_key, []).extend([
+            dep[CcInfo]
+            for dep in avoid_deps
+            if CcInfo in dep
+        ])
+    for framework in ctx.attr.frameworks:
+        slices = framework[_AppleXcframeworkLinkingInfo].slices
+        for split_attr_key in cc_toolchain_forwarder.keys():
+            if split_attr_key not in slices:
+                fail("{} does not provide the {} slice required by {}".format(
+                    framework.label,
+                    split_attr_key,
+                    label,
+                ))
+            split_avoid_cc_infos.setdefault(split_attr_key, []).append(slices[split_attr_key])
+
     link_result = linking_support.register_binary_linking_action(
         ctx,
-        avoid_deps = ctx.attr.avoid_deps,
         cc_toolchains = cc_toolchain_forwarder,
         # Frameworks do not have entitlements.
         entitlements = None,
@@ -638,8 +672,49 @@ def _apple_xcframework_impl(ctx):
         # All required knowledge for 3P facing frameworks is passed directly through the given
         # `extra_linkopts`; no rule_descriptor is needed to share with this linking action.
         rule_descriptor = None,
+        split_avoid_cc_infos = split_avoid_cc_infos,
         stamp = ctx.attr.stamp,
     )
+
+    linking_slices = {}
+    for link_output in link_result.outputs:
+        cc_toolchain = cc_toolchain_forwarder[link_output.split_transition_key][cc_common.CcToolchainInfo]
+
+        # The binaries of all splits have the same name, so each one gets a unique path to link.
+        dynamic_library = intermediates.file(
+            actions = actions,
+            target_name = label.name,
+            output_discriminator = link_output.split_transition_key,
+            file_name = paths.join(bundle_name + nested_bundle_extension, bundle_name),
+        )
+        actions.symlink(
+            output = dynamic_library,
+            target_file = link_output.binary,
+        )
+        library_to_link = cc_common.create_library_to_link(
+            actions = actions,
+            cc_toolchain = cc_toolchain,
+            feature_configuration = cc_common.configure_features(
+                ctx = ctx,
+                cc_toolchain = cc_toolchain,
+                requested_features = ctx.features,
+                unsupported_features = ctx.disabled_features,
+            ),
+            dynamic_library = dynamic_library,
+        )
+        linking_slices[link_output.split_transition_key] = cc_common.merge_cc_infos(
+            cc_infos = [
+                CcInfo(
+                    linking_context = cc_common.create_linking_context(
+                        linker_inputs = depset([cc_common.create_linker_input(
+                            owner = label,
+                            libraries = depset([library_to_link]),
+                        )]),
+                    ),
+                ),
+                link_output.cc_info,
+            ],
+        )
 
     link_outputs_by_library_identifier = _group_link_outputs_by_library_identifier(
         actions = actions,
@@ -958,6 +1033,7 @@ def _apple_xcframework_impl(ctx):
             platform_type = None,
         ),
         new_applexcframeworkbundleinfo(),
+        _AppleXcframeworkLinkingInfo(slices = linking_slices),
         DefaultInfo(
             files = depset([outputs_archive], transitive = framework_output_files),
         ),
@@ -1005,6 +1081,14 @@ A list of library targets on which this framework depends in order to compile, b
 closure of which will not be linked into the framework's binary, nor bundled into final XCFramework.
 This is the mechanism for cascading multiple `apple_xcframework` targets where one framework
 dynamically links against another at runtime.
+""",
+            ),
+            "frameworks": attr.label_list(
+                providers = [_AppleXcframeworkLinkingInfo],
+                doc = """
+A list of `apple_xcframework` targets that this framework links against at runtime. Each platform
+binary links the binary of the same platform from these XCFrameworks, and not the libraries linked
+into them. They are not bundled into this XCFramework.
 """,
             ),
             "bundle_id": attr.string(
