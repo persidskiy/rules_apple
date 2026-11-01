@@ -70,6 +70,7 @@ def _create_modulemap(
         module_name,
         sdk_dylibs,
         sdk_frameworks,
+        swift_generated_header,
         umbrella_header_name):
     """Creates a modulemap for a framework.
 
@@ -81,6 +82,8 @@ def _create_modulemap(
       module_name: The name of the module to declare in the module map file.
       sdk_dylibs: A list of system dylibs to list in the module.
       sdk_frameworks: A list of system frameworks to list in the module.
+      swift_generated_header: The basename of the header generated for the Swift module of the
+          framework, declared in the `<module_name>.Swift` submodule, or None.
       umbrella_header_name: The basename of the umbrella header file, or None if
           there is no umbrella header.
     """
@@ -103,6 +106,13 @@ def _create_modulemap(
         "\n".join(["  " + decl for decl in declarations]) +
         "\n}\n"
     )
+    if swift_generated_header:
+        content += (
+            "\nmodule {module_name}.Swift {{\n".format(module_name = module_name) +
+            '  header "{}"\n'.format(swift_generated_header) +
+            "  requires objc\n" +
+            "}\n"
+        )
     actions.write(output = output, content = content)
 
 def _create_umbrella_header(actions, output, bundle_name, headers, framework_imports):
@@ -149,6 +159,7 @@ def _framework_header_modulemap_partial_impl(
         private_umbrella_header,
         sdk_dylibs,
         sdk_frameworks,
+        swift_generated_header,
         umbrella_header):
     """Implementation for the sdk framework headers and modulemaps partial."""
     bundle_files = []
@@ -194,6 +205,7 @@ def _framework_header_modulemap_partial_impl(
             module_name = private_module_name,
             sdk_dylibs = [],
             sdk_frameworks = [],
+            swift_generated_header = None,
             umbrella_header_name = private_umbrella_header_file.basename,
         )
         bundle_files.append((processor.location.bundle, "Modules", depset([private_modulemap_file])))
@@ -254,6 +266,7 @@ def _framework_header_modulemap_partial_impl(
             module_name = bundle_name,
             sdk_dylibs = sorted(sdk_dylibs.to_list() if sdk_dylibs else []),
             sdk_frameworks = sorted(sdk_frameworks.to_list() if sdk_frameworks else []),
+            swift_generated_header = swift_generated_header,
             umbrella_header_name = umbrella_header_name,
         )
         bundle_files.append((processor.location.bundle, "Modules", depset([modulemap_file])))
@@ -274,6 +287,7 @@ def framework_header_modulemap_partial(
         private_umbrella_header = None,
         sdk_dylibs = [],
         sdk_frameworks = [],
+        swift_generated_header = None,
         umbrella_header = None):
     """Constructor for the framework headers and modulemaps partial.
 
@@ -294,6 +308,8 @@ def framework_header_modulemap_partial(
           generating `<bundle_name>_Private.h`. Optional.
       sdk_dylibs: A list of dynamic libraries referenced by this framework.
       sdk_frameworks: A list of frameworks referenced by this framework.
+      swift_generated_header: The basename of the header generated for the Swift module of a
+          mixed-language framework, bundled by `swift_framework_partial`. Optional.
       umbrella_header: An umbrella header to use instead of generating one. Optional.
 
     Returns:
@@ -312,5 +328,6 @@ def framework_header_modulemap_partial(
         private_umbrella_header = private_umbrella_header,
         sdk_dylibs = sdk_dylibs,
         sdk_frameworks = sdk_frameworks,
+        swift_generated_header = swift_generated_header,
         umbrella_header = umbrella_header,
     )
