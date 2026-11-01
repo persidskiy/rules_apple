@@ -898,6 +898,7 @@ def _apple_xcframework_impl(ctx):
                         label_name = label.name,
                         output_discriminator = library_identifier,
                         private_hdrs = ctx.files.private_hdrs,
+                        private_umbrella_header = ctx.file.private_umbrella_header,
                     ),
                 )
         else:
@@ -909,6 +910,7 @@ def _apple_xcframework_impl(ctx):
                     label_name = label.name,
                     output_discriminator = library_identifier,
                     private_hdrs = ctx.files.private_hdrs,
+                    private_umbrella_header = ctx.file.private_umbrella_header,
                     umbrella_header = ctx.file.umbrella_header,
                 ),
             )
@@ -1212,6 +1214,14 @@ An `apple_bundle_version` target that represents the version for this target. Se
 [`apple_bundle_version`](https://github.com/bazelbuild/rules_apple/blob/main/doc/rules-versioning.md#apple_bundle_version).
 """,
             ),
+            "private_umbrella_header": attr.label(
+                allow_single_file = [".h"],
+                doc = """
+An optional single .h file to use as the umbrella header of the private module, `<bundle_name>_Private`,
+declared in `Modules/module.private.modulemap` when `private_hdrs` are set. If this attribute is not
+specified, an umbrella header importing all `private_hdrs` will be generated as `<bundle_name>_Private.h`.
+""",
+            ),
             "umbrella_header": attr.label(
                 allow_single_file = [".h"],
                 doc = """
@@ -1303,6 +1313,7 @@ def _apple_static_xcframework_impl(ctx):
                     label_name = label.name,
                     output_discriminator = library_identifier,
                     private_hdrs = ctx.files.private_hdrs,
+                    private_umbrella_header = ctx.file.private_umbrella_header,
                 ))
                 interface_artifacts = struct(
                     bundle_files = interface_artifacts.bundle_files +
@@ -1326,6 +1337,7 @@ def _apple_static_xcframework_impl(ctx):
                 label_name = label.name,
                 output_discriminator = library_identifier,
                 private_hdrs = ctx.files.private_hdrs,
+                private_umbrella_header = ctx.file.private_umbrella_header,
                 umbrella_header = ctx.file.umbrella_header,
                 sdk_frameworks = sdk_frameworks,
                 sdk_dylibs = sdk_dylibs,
@@ -1643,6 +1655,14 @@ typically in a subdirectory such as `Headers`.
 A list of files directly referencing header files to be embedded as private headers in each
 platform split, under the `PrivateHeaders` subdirectory. These headers are not exported via the
 umbrella header or the module map.
+""",
+            ),
+            "private_umbrella_header": attr.label(
+                allow_single_file = [".h"],
+                doc = """
+An optional single .h file to use as the umbrella header of the private module, `<bundle_name>_Private`,
+declared in `Modules/module.private.modulemap` when `private_hdrs` are set. If this attribute is not
+specified, an umbrella header importing all `private_hdrs` will be generated as `<bundle_name>_Private.h`.
 """,
             ),
             "umbrella_header": attr.label(

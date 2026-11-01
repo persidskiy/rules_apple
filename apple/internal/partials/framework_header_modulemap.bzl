@@ -146,6 +146,7 @@ def _framework_header_modulemap_partial_impl(
         label_name,
         output_discriminator,
         private_hdrs,
+        private_umbrella_header,
         sdk_dylibs,
         sdk_frameworks,
         umbrella_header):
@@ -153,9 +154,49 @@ def _framework_header_modulemap_partial_impl(
     bundle_files = []
 
     if private_hdrs:
-        bundle_files.append(
-            (processor.location.bundle, "PrivateHeaders", depset(private_hdrs)),
+        # Clang looks up the `<Name>_Private` module of a framework in `module.private.modulemap`.
+        private_module_name = "{}_Private".format(bundle_name)
+        if private_umbrella_header:
+            private_umbrella_header_file = private_umbrella_header
+        else:
+            private_umbrella_header_file = intermediates.file(
+                actions = actions,
+                target_name = label_name,
+                output_discriminator = output_discriminator,
+                file_name = "{}.h".format(private_module_name),
+            )
+            _create_umbrella_header(
+                actions,
+                private_umbrella_header_file,
+                bundle_name,
+                sorted(private_hdrs),
+                framework_modulemap,
+            )
+        bundle_files.append((
+            processor.location.bundle,
+            "PrivateHeaders",
+            depset(_exported_headers(
+                public_hdrs = private_hdrs,
+                generated_umbrella_header_file = private_umbrella_header_file,
+            )),
+        ))
+
+        private_modulemap_file = intermediates.file(
+            actions = actions,
+            target_name = label_name + ".modulemaps",
+            output_discriminator = output_discriminator,
+            file_name = "module.private.modulemap",
         )
+        _create_modulemap(
+            actions = actions,
+            framework_modulemap = framework_modulemap,
+            output = private_modulemap_file,
+            module_name = private_module_name,
+            sdk_dylibs = [],
+            sdk_frameworks = [],
+            umbrella_header_name = private_umbrella_header_file.basename,
+        )
+        bundle_files.append((processor.location.bundle, "Modules", depset([private_modulemap_file])))
 
     umbrella_header_name = None
     if umbrella_header:
@@ -230,6 +271,7 @@ def framework_header_modulemap_partial(
         label_name,
         output_discriminator = None,
         private_hdrs = [],
+        private_umbrella_header = None,
         sdk_dylibs = [],
         sdk_frameworks = [],
         umbrella_header = None):
@@ -246,7 +288,10 @@ def framework_header_modulemap_partial(
       label_name: Name of the target being built.
       output_discriminator: A string to differentiate between different target intermediate files
           or `None`.
-      private_hdrs: The list of private headers to bundle under `PrivateHeaders/`. Optional.
+      private_hdrs: The list of private headers to bundle under `PrivateHeaders/`, exported as the
+          `<bundle_name>_Private` module by `Modules/module.private.modulemap`. Optional.
+      private_umbrella_header: An umbrella header of the private module to use instead of
+          generating `<bundle_name>_Private.h`. Optional.
       sdk_dylibs: A list of dynamic libraries referenced by this framework.
       sdk_frameworks: A list of frameworks referenced by this framework.
       umbrella_header: An umbrella header to use instead of generating one. Optional.
@@ -264,6 +309,7 @@ def framework_header_modulemap_partial(
         label_name = label_name,
         output_discriminator = output_discriminator,
         private_hdrs = private_hdrs,
+        private_umbrella_header = private_umbrella_header,
         sdk_dylibs = sdk_dylibs,
         sdk_frameworks = sdk_frameworks,
         umbrella_header = umbrella_header,
