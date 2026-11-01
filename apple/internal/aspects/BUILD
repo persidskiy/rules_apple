@@ -82,6 +82,14 @@ bzl_library(
 )
 
 bzl_library(
+    name = "linkable_more_than_once_aspect",
+    srcs = ["linkable_more_than_once_aspect.bzl"],
+    visibility = [
+        "//apple/internal:__pkg__",
+    ],
+)
+
+bzl_library(
     name = "swift_usage_aspect",
     srcs = ["swift_usage_aspect.bzl"],
     visibility = [

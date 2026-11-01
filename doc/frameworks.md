@@ -160,6 +160,28 @@ dependency graph has not been modified. Therefore `ios_framework` can be thought
 of as a tool to manage how code is packaged inside the different binaries
 present within an iOS application bundle.
 
+#### Linking a library into both the framework and its dependents
+
+Libraries linked into a framework are removed from the binaries that list the
+framework in `frameworks`, assuming the framework exports their symbols. That is
+not the case for libraries whose symbols are hidden in the framework, for
+example libraries built with `-fvisibility=hidden`. To keep such a library in
+the dependents' binaries as well, so that each binary gets its own private copy,
+tag it with `LINKABLE_MORE_THAN_ONCE`, as you would for `cc_shared_library`:
+
+```build
+cc_library(
+  name = "HiddenLib",
+  srcs = [...],
+  copts = ["-fvisibility=hidden"],
+  tags = ["LINKABLE_MORE_THAN_ONCE"],
+)
+```
+
+Only tag libraries that are safe to have more than one copy of in the same
+process, i.e. that have no global state which must be shared between the
+copies.
+
 ### `apple_dynamic_framework_import` and `apple_static_framework_import`
 
 In order to depend on an imported pre-built static or dynamic framework, you'll

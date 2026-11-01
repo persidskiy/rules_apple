@@ -259,6 +259,32 @@ def ios_framework_test_suite(name):
         tags = [name],
     )
 
+    # Tests that libraries tagged LINKABLE_MORE_THAN_ONCE are linked into both the framework and
+    # the application, while untagged libraries are only linked into the framework.
+    archive_contents_test(
+        name = "{}_symbols_from_linkable_more_than_once_library_in_framework".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_fmwk_with_linkable_more_than_once_lib",
+        binary_test_file = "$BUNDLE_ROOT/Frameworks/fmwk_with_linkable_more_than_once_lib.framework/fmwk_with_linkable_more_than_once_lib",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = [
+            "_OBJC_CLASS_$_ObjectiveCCommonClass",
+            "_dontCallMeShared",
+        ],
+        tags = [name],
+    )
+
+    archive_contents_test(
+        name = "{}_symbols_from_linkable_more_than_once_library_in_application".format(name),
+        build_type = "simulator",
+        target_under_test = "//test/starlark_tests/targets_under_test/ios:app_with_fmwk_with_linkable_more_than_once_lib",
+        binary_test_file = "$BUNDLE_ROOT/app_with_fmwk_with_linkable_more_than_once_lib",
+        binary_test_architecture = "x86_64",
+        binary_contains_symbols = ["_dontCallMeShared"],
+        binary_not_contains_symbols = ["_OBJC_CLASS_$_ObjectiveCCommonClass"],
+        tags = [name],
+    )
+
     archive_contents_test(
         name = "{}_app_includes_transitive_framework_test".format(name),
         build_type = "simulator",
