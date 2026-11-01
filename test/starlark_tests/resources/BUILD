@@ -101,6 +101,14 @@ objc_library(
 )
 
 objc_library(
+    name = "objc_shared_lib_linkable_more_than_once",
+    srcs = ["shared.m"],
+    hdrs = ["shared.h"],
+    tags = common.fixture_tags + ["LINKABLE_MORE_THAN_ONCE"],
+    alwayslink = True,
+)
+
+objc_library(
     name = "objc_shared_lib_with_transitive_resources",
     srcs = ["shared.m"],
     hdrs = ["shared.h"],

@@ -1894,6 +1894,41 @@ ios_framework(
 )
 
 ios_application(
+    name = "app_with_fmwk_with_linkable_more_than_once_lib",
+    bundle_id = "com.google.example",
+    families = ["iphone"],
+    frameworks = [
+        ":fmwk_with_linkable_more_than_once_lib",
+    ],
+    infoplists = [
+        "//test/starlark_tests/resources:Info.plist",
+    ],
+    minimum_os_version = common.min_os_ios.baseline,
+    provisioning_profile = "//test/testdata/provisioning:integration_testing_ios.mobileprovision",
+    tags = common.fixture_tags,
+    deps = [
+        "//test/starlark_tests/resources:objc_common_lib",
+        "//test/starlark_tests/resources:objc_main_lib",
+        "//test/starlark_tests/resources:objc_shared_lib_linkable_more_than_once",
+    ],
+)
+
+ios_framework(
+    name = "fmwk_with_linkable_more_than_once_lib",
+    bundle_id = "com.google.example.framework",
+    families = ["iphone"],
+    infoplists = [
+        "//test/starlark_tests/resources:Info.plist",
+    ],
+    minimum_os_version = common.min_os_ios.baseline,
+    tags = common.fixture_tags,
+    deps = [
+        "//test/starlark_tests/resources:objc_common_lib",
+        "//test/starlark_tests/resources:objc_shared_lib_linkable_more_than_once",
+    ],
+)
+
+ios_application(
     name = "app_with_framework_and_shared_resources",
     bundle_id = "com.google.example",
     families = ["iphone"],

@@ -33,13 +33,19 @@ def _build_avoid_library_set(avoid_dep_linking_contexts):
 
     return avoid_library_set
 
-def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_contexts):
+def subtract_linking_contexts(
+        owner,
+        linking_contexts,
+        avoid_dep_linking_contexts,
+        linkable_more_than_once_labels = depset()):
     """Subtracts the libraries in avoid_dep_linking_contexts from linking_contexts.
 
     Args:
       owner: The label of the target currently being analyzed.
       linking_contexts: An iterable of CcLinkingContext objects.
       avoid_dep_linking_contexts: An iterable of CcLinkingContext objects.
+      linkable_more_than_once_labels: A depset of Labels of the targets whose libraries are kept
+        even if they are also in avoid_dep_linking_contexts.
 
     Returns:
       A CcLinkingContext object.
@@ -49,6 +55,11 @@ def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_context
     additional_inputs = []
     linkstamps = []
     avoid_library_set = _build_avoid_library_set(avoid_dep_linking_contexts)
+    linkable_more_than_once_set = {
+        label: True
+        for label in linkable_more_than_once_labels.to_list()
+    }
+    kept_avoided_library_set = dict()
     linker_inputs_seen = dict()
 
     for linking_context in linking_contexts:
@@ -60,9 +71,17 @@ def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_context
 
             for library_to_link in linker_input.libraries:
                 library_artifact = compilation_support.get_library_for_linking(library_to_link)
+                short_path = library_artifact.short_path
 
-                if library_artifact.short_path not in avoid_library_set:
-                    libraries.append(library_to_link)
+                if short_path in avoid_library_set:
+                    # The avoided dependency may have been built in another configuration, so
+                    # its copy of the library would not be deduplicated by linker_inputs_seen.
+                    if (linker_input.owner not in linkable_more_than_once_set or
+                        short_path in kept_avoided_library_set):
+                        continue
+                    kept_avoided_library_set[short_path] = True
+
+                libraries.append(library_to_link)
 
             user_link_flags.extend(linker_input.user_link_flags)
             additional_inputs.extend(linker_input.additional_inputs)

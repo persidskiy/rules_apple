@@ -49,6 +49,10 @@ load(
     "ApplePlatformInfo",
     "new_appledebugoutputsinfo",
 )
+load(
+    "//apple/internal/aspects:linkable_more_than_once_aspect.bzl",
+    "LinkableMoreThanOnceInfo",
+)
 
 def _archive_multi_arch_static_library(
         *,
@@ -272,6 +276,11 @@ def _link_multi_arch_binary(
             linking_contexts = common_variables.objc_linking_context.cc_linking_contexts +
                                avoid_cc_linking_contexts,
             avoid_dep_linking_contexts = avoid_cc_linking_contexts,
+            linkable_more_than_once_labels = depset(transitive = [
+                dep[LinkableMoreThanOnceInfo].labels
+                for dep in deps
+                if LinkableMoreThanOnceInfo in dep
+            ]),
         )
 
         additional_outputs = []

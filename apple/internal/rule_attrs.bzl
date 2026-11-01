@@ -56,6 +56,10 @@ load(
     "framework_provider_aspect",
 )
 load(
+    "//apple/internal/aspects:linkable_more_than_once_aspect.bzl",
+    "linkable_more_than_once_aspect",
+)
+load(
     "//apple/internal/aspects:resource_aspect.bzl",
     "apple_resource_aspect",
 )
@@ -168,6 +172,7 @@ def _binary_linking_attrs(
             macro.
     """
     deps_aspects = [
+        linkable_more_than_once_aspect,
         swift_usage_aspect,
     ]
     deps_aspects.extend(extra_deps_aspects)
