@@ -31,6 +31,10 @@ load(
     "swift_info_support",
 )
 
+def swift_generated_header_name(module_name):
+    """Returns the name of the generated header of a mixed-language framework."""
+    return "{}-Swift.h".format(module_name)
+
 def _swift_framework_partial_impl(
         *,
         actions,
@@ -38,6 +42,7 @@ def _swift_framework_partial_impl(
         bundle_name,
         framework_modulemap,
         label_name,
+        mixed_language,
         output_discriminator,
         swift_infos):
     """Implementation for the Swift framework processing partial."""
@@ -80,6 +85,20 @@ issue with a reproducible error case.
                 swiftinterface = swift_module.swift.swiftinterface,
             )
             bundle_files.append((processor.location.bundle, modules_parent, depset([bundle_interface])))
+            if swift_module.swift.private_swiftinterface:
+                bundle_private_interface = swift_info_support.declare_swiftinterface(
+                    actions = actions,
+                    arch = arch,
+                    label_name = label_name,
+                    output_discriminator = output_discriminator,
+                    private = True,
+                    swiftinterface = swift_module.swift.private_swiftinterface,
+                )
+                bundle_files.append((
+                    processor.location.bundle,
+                    modules_parent,
+                    depset([bundle_private_interface]),
+                ))
         else:
             bundle_swiftmodule = swift_info_support.declare_swiftmodule(
                 actions = actions,
@@ -107,6 +126,7 @@ issue with a reproducible error case.
     if found_generated_header:
         bundle_header = swift_info_support.declare_generated_header(
             actions = actions,
+            file_name = swift_generated_header_name(expected_module_name) if mixed_language else None,
             generated_header = found_generated_header,
             label_name = label_name,
             output_discriminator = output_discriminator,
@@ -114,6 +134,9 @@ issue with a reproducible error case.
         )
         bundle_files.append((processor.location.bundle, "Headers", depset([bundle_header])))
 
+    # A mixed-language framework declares the Swift header as a submodule of its Objective-C
+    # module, in the module map of `framework_header_modulemap_partial`.
+    if found_generated_header and not mixed_language:
         modulemap = swift_info_support.declare_modulemap(
             actions = actions,
             framework_modulemap = framework_modulemap,
@@ -132,6 +155,7 @@ def swift_framework_partial(
         bundle_name,
         framework_modulemap = True,
         label_name,
+        mixed_language = False,
         output_discriminator = None,
         swift_infos):
     """Constructor for the Swift framework processing partial.
@@ -146,6 +170,9 @@ def swift_framework_partial(
         framework_modulemap: Boolean to indicate if the generated modulemap should be for a
             framework instead of a library or a generic module. Defaults to `True`.
         label_name: Name of the target being built.
+        mixed_language: Whether the framework also has an Objective-C module with public headers.
+            If so, the generated header is bundled as `<bundle_name>-Swift.h`, and no module map is
+            generated.
         output_discriminator: A string to differentiate between different target intermediate files
             or `None`.
         swift_infos: A dictionary with architectures as keys and the SwiftInfo provider containing
@@ -162,6 +189,7 @@ def swift_framework_partial(
         bundle_name = bundle_name,
         framework_modulemap = framework_modulemap,
         label_name = label_name,
+        mixed_language = mixed_language,
         output_discriminator = output_discriminator,
         swift_infos = swift_infos,
     )

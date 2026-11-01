@@ -95,6 +95,10 @@ load(
     "rule_support",
 )
 load(
+    "//apple/internal:swift_info_support.bzl",
+    "swift_info_support",
+)
+load(
     "//apple/internal:swift_support.bzl",
     "swift_support",
 )
@@ -109,6 +113,10 @@ load(
 load(
     "//apple/internal/aspects:swift_usage_aspect.bzl",
     "swift_usage_aspect",
+)
+load(
+    "//apple/internal/partials:swift_framework.bzl",
+    "swift_generated_header_name",
 )
 load(
     "//apple/internal/utils:files.bzl",
@@ -163,6 +171,28 @@ _XCFRAMEWORK_PLATFORM_NAME = {
     "watchos": "watchos",
     "visionos": "xros",
 }
+
+def _has_swift_generated_header(*, avoid_deps, swift_infos):
+    """Indicates if the Swift module of the framework generates an Objective-C header.
+
+    Args:
+        avoid_deps: A list of library targets with modules to avoid.
+        swift_infos: A dictionary with architectures as keys and the SwiftInfo provider of the
+            framework's Swift module for that architecture as values.
+
+    Returns:
+        `True` if the Swift module generates a header, `False` otherwise.
+    """
+    avoid_modules = swift_info_support.modules_from_avoid_deps(avoid_deps = avoid_deps)
+    for swift_info in swift_infos.values():
+        swift_module = swift_info_support.swift_include_info(
+            avoid_modules = avoid_modules,
+            found_module_name = None,
+            transitive_modules = swift_info.transitive_modules,
+        )
+        if swift_module.clang and swift_module.clang.compilation_context.direct_headers:
+            return True
+    return False
 
 def _xcframework_platform_name(platform):
     return _XCFRAMEWORK_PLATFORM_NAME.get(platform, platform)
@@ -879,26 +909,38 @@ def _apple_xcframework_impl(ctx):
         ]
 
         if link_output.framework_swift_infos:
+            # With public headers, the Swift module extends the Objective-C module of the
+            # framework, as in Xcode.
+            mixed_language = bool(ctx.files.public_hdrs or ctx.file.umbrella_header)
             processor_partials.append(
                 partials.swift_framework_partial(
                     actions = actions,
                     avoid_deps = ctx.attr.avoid_deps,
                     bundle_name = bundle_name,
                     label_name = label.name,
+                    mixed_language = mixed_language,
                     output_discriminator = library_identifier,
                     swift_infos = link_output.framework_swift_infos,
                 ),
             )
-            if ctx.files.private_hdrs:
+            if mixed_language or ctx.files.private_hdrs:
+                has_generated_header = _has_swift_generated_header(
+                    avoid_deps = ctx.attr.avoid_deps,
+                    swift_infos = link_output.framework_swift_infos,
+                )
                 processor_partials.append(
                     partials.framework_header_modulemap_partial(
                         actions = actions,
                         bundle_name = bundle_name,
-                        hdrs = [],
+                        hdrs = ctx.files.public_hdrs if mixed_language else [],
                         label_name = label.name,
                         output_discriminator = library_identifier,
                         private_hdrs = ctx.files.private_hdrs,
                         private_umbrella_header = ctx.file.private_umbrella_header,
+                        swift_generated_header = swift_generated_header_name(bundle_name) if (
+                            mixed_language and has_generated_header
+                        ) else None,
+                        umbrella_header = ctx.file.umbrella_header if mixed_language else None,
                     ),
                 )
         else:

@@ -185,6 +185,7 @@ def _declare_modulemap(
 def _declare_generated_header(
         *,
         actions,
+        file_name = None,
         generated_header,
         label_name,
         module_name,
@@ -193,6 +194,7 @@ def _declare_generated_header(
 
     Args:
         actions: The actions provider from `ctx.actions`.
+        file_name: The name of the bundled header. Defaults to `<module_name>.h`.
         generated_header: A File referencing the generated header from a SwiftInfo provider.
         label_name: Name of the target being built.
         module_name: The name of the Swift module.
@@ -206,7 +208,7 @@ def _declare_generated_header(
         actions = actions,
         target_name = label_name,
         output_discriminator = output_discriminator,
-        file_name = "{}.h".format(module_name),
+        file_name = file_name or "{}.h".format(module_name),
     )
     actions.symlink(
         target_file = generated_header,
@@ -252,6 +254,7 @@ def _declare_swiftinterface(
         arch,
         label_name,
         output_discriminator,
+        private = False,
         swiftinterface):
     """Declares the swiftinterface for this Swift framework.
 
@@ -261,6 +264,7 @@ def _declare_swiftinterface(
         label_name: Name of the target being built.
         output_discriminator: A string to differentiate between different target intermediate files
             or `None`.
+        private: Whether `swiftinterface` is the private swiftinterface of the module.
         swiftinterface: A File referencing the swiftinterface file from a SwiftInfo provider.
 
     Returns:
@@ -270,7 +274,7 @@ def _declare_swiftinterface(
         actions = actions,
         target_name = label_name,
         output_discriminator = output_discriminator,
-        file_name = "{}.swiftinterface".format(arch),
+        file_name = "{}{}.swiftinterface".format(arch, ".private" if private else ""),
     )
     actions.symlink(
         target_file = swiftinterface,
