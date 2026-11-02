@@ -38,7 +38,12 @@ def _get_apple_clang_triplet(cc_toolchain):
     if raw_triplet.vendor != "apple":
         return raw_triplet
 
-    environment = "device" if (raw_triplet.environment == None) else "simulator"
+    if raw_triplet.environment == None:
+        environment = "device"
+    elif raw_triplet.environment == "macabi":
+        environment = "maccatalyst"
+    else:
+        environment = "simulator"
 
     # strip version from Apple platforms
     os = raw_triplet.os

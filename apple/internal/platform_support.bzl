@@ -56,6 +56,10 @@ def _ui_device_family_plist_value(*, platform_prerequisites):
       A list of integers to use for the `UIDeviceFamily` in an Info.plist
       or None if the key should not be added to the Info.plist.
     """
+    # Mac Catalyst apps run with the iPad idiom, or the Mac idiom when optimized for Mac.
+    if platform_prerequisites.platform_type == apple_common.platform_type.catalyst:
+        return [2, 6]
+
     family_ids = []
     families = platform_prerequisites.device_families
 
@@ -80,6 +84,8 @@ def _apple_common_platform_from_platform_info(*, apple_platform_info):
             return apple_common.platform.ios_device
         elif apple_platform_info.target_environment == "simulator":
             return apple_common.platform.ios_simulator
+        elif apple_platform_info.target_environment == "catalyst":
+            return apple_common.platform.catalyst
     elif apple_platform_info.target_os == "macos":
         return apple_common.platform.macos
     elif apple_platform_info.target_os == "tvos":
@@ -152,7 +158,10 @@ def _platform_prerequisites(
     """
 
     platform = _apple_common_platform_from_platform_info(apple_platform_info = apple_platform_info)
-    platform_type_attr = getattr(apple_common.platform_type, apple_platform_info.target_os)
+    if platform == apple_common.platform.catalyst:
+        platform_type_attr = apple_common.platform_type.catalyst
+    else:
+        platform_type_attr = getattr(apple_common.platform_type, apple_platform_info.target_os)
     sdk_version = xcode_version_config.sdk_version_for_platform(platform)
 
     if explicit_minimum_os:

@@ -197,6 +197,18 @@ def _has_swift_generated_header(*, avoid_deps, swift_infos):
 def _xcframework_platform_name(platform):
     return _XCFRAMEWORK_PLATFORM_NAME.get(platform, platform)
 
+def _xcframework_environment_name(environment):
+    return "maccatalyst" if environment == "catalyst" else environment
+
+def _bundle_platform_type(link_output):
+    """Returns the platform whose bundle layout and environment a framework slice follows.
+
+    Mac Catalyst frameworks are iOS frameworks bundled as macOS frameworks.
+    """
+    if link_output.environment == "catalyst":
+        return "macos"
+    return link_output.platform
+
 def _apple_platform_info_for_link_output(*, link_output):
     """Creates an ApplePlatformInfo for a framework slice's target platform.
 
@@ -369,7 +381,7 @@ def _library_identifier(*, architectures, environment, platform):
     """
     library_identifier = "{}-{}".format(_xcframework_platform_name(platform), "_".join(architectures))
     if environment != "device":
-        library_identifier += "-{}".format(environment)
+        library_identifier += "-{}".format(_xcframework_environment_name(environment))
     return library_identifier
 
 def _unioned_attrs(*, attr_names, split_attr, split_attr_keys):
@@ -441,7 +453,7 @@ def _available_library_dictionary(
         available_library["DebugSymbolsPath"] = debug_symbols_path
 
     if environment != "device":
-        available_library["SupportedPlatformVariant"] = environment
+        available_library["SupportedPlatformVariant"] = _xcframework_environment_name(environment)
     return available_library
 
 def _create_xcframework_root_infoplist(
@@ -772,7 +784,7 @@ def _apple_xcframework_impl(ctx):
         binary_artifact = link_output.binary
 
         rule_descriptor = rule_support.rule_descriptor(
-            platform_type = link_output.platform,
+            platform_type = _bundle_platform_type(link_output),
             product_type = apple_product_type.framework,
         )
 
@@ -831,7 +843,7 @@ def _apple_xcframework_impl(ctx):
 
         environment_plist = files_utils.get_file_with_name(
             name = "environment_plist_{platform}".format(
-                platform = link_output.platform,
+                platform = _bundle_platform_type(link_output),
             ),
             files = ctx.files._environment_plist_files,
         )
@@ -1111,6 +1123,7 @@ Pass `--apple_generate_dsym` to include dSYM bundles in the XCFramework.
             "_environment_plist_files": attr.label_list(
                 default = [
                     "//apple/internal:environment_plist_ios",
+                    "//apple/internal:environment_plist_macos",
                     "//apple/internal:environment_plist_tvos",
                     "//apple/internal:environment_plist_visionos",
                 ],
@@ -1187,7 +1200,7 @@ for what is supported.
             "ios": attr.string_list_dict(
                 doc = """
 A dictionary of strings indicating which platform variants should be built for the iOS platform (
-`device` or `simulator`) as keys, and arrays of strings listing which architectures should be
+`device`, `simulator` or `maccatalyst`) as keys, and arrays of strings listing which architectures should be
 built for those platform variants (for example, `x86_64`, `arm64`) as their values.
 """,
             ),
@@ -1460,7 +1473,7 @@ def _apple_static_xcframework_impl(ctx):
 
             environment_plist = files_utils.get_file_with_name(
                 name = "environment_plist_{platform}".format(
-                    platform = link_output.platform,
+                    platform = _bundle_platform_type(link_output),
                 ),
                 files = ctx.files._environment_plist_files,
             )
@@ -1568,6 +1581,7 @@ apple_static_xcframework = rule_factory.create_apple_rule(
             "_environment_plist_files": attr.label_list(
                 default = [
                     "//apple/internal:environment_plist_ios",
+                    "//apple/internal:environment_plist_macos",
                     "//apple/internal:environment_plist_tvos",
                     "//apple/internal:environment_plist_visionos",
                 ],

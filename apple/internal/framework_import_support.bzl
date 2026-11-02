@@ -411,7 +411,9 @@ def _get_swift_module_files_with_target_triplet(target_triplet, swift_module_fil
     for _module, module_files in files_by_module.items():
         # Environment suffix is stripped for device interfaces.
         environment = ""
-        if target_triplet.environment != "device":
+        if target_triplet.environment == "maccatalyst":
+            environment = "-macabi"
+        elif target_triplet.environment != "device":
             environment = "-" + target_triplet.environment
 
         module_files_list = module_files.to_list()

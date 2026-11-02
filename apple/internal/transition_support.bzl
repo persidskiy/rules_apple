@@ -306,6 +306,8 @@ def _cpu_string(*, environment_arch, minimum_os_version, platform_type, settings
         A <platform>_<arch> string defined for the current target.
     """
     if platform_type == "ios":
+        if environment_arch and environment_arch.startswith("catalyst_"):
+            return environment_arch
         if environment_arch:
             return "ios_{}".format(environment_arch)
         ios_cpus = settings["//command_line_option:ios_multi_cpus"]
@@ -425,7 +427,9 @@ def _command_line_options(
         # apple_split_cpu is still needed for Bazel built-in objc_library transition logic and Apple
         # fragment APIs, and it's also required to keep Bazel from optimizing away splits when deps
         # are identical between platforms.
-        "//command_line_option:apple_split_cpu": environment_arch if environment_arch else "",
+        # Bazel can't resolve a Mac Catalyst platform from `apple_split_cpu`, so Catalyst splits pass
+        # the bare arch; `cpu` and `platforms` keep them apart from the iOS ones.
+        "//command_line_option:apple_split_cpu": environment_arch.removeprefix("catalyst_") if environment_arch else "",
         "//command_line_option:compiler": None,
         "//command_line_option:cpu": cpu,
         "//command_line_option:fission": [],
@@ -483,6 +487,8 @@ def _xcframework_split_attr_key(*, arch, environment, minimum_os_version, platfo
     ) + "_" + environment
 
 def _resolved_environment_arch_for_arch(*, arch, environment, platform_type):
+    if environment == "maccatalyst":
+        return "catalyst_" + arch
     # TODO: Remove `watchos` after https://github.com/bazelbuild/bazel/pull/16181
     if arch == "arm64" and environment == "simulator" and platform_type != "watchos":
         return "sim_arm64"
@@ -528,7 +534,8 @@ def _command_line_options_for_xcframework_platform(
             found_cpu = {
                 _xcframework_split_attr_key(
                     arch = arch,
-                    environment = target_environment,
+                    # Mac Catalyst toolchains report the `catalyst` target environment.
+                    environment = "catalyst" if target_environment == "maccatalyst" else target_environment,
                     minimum_os_version = minimum_os_version,
                     platform_type = platform_type,
                 ): _command_line_options(
@@ -748,6 +755,8 @@ def _xcframework_transition_impl(settings, attr):
         target_environments = ["device"]
         if platform_type != "macos":
             target_environments.append("simulator")
+        if platform_type == "ios":
+            target_environments.append("maccatalyst")
 
         command_line_options = _command_line_options_for_xcframework_platform(
             minimum_os_version = attr.minimum_os_versions.get(platform_type),

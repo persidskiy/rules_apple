@@ -72,6 +72,7 @@ File object that represents a directory containing the Swift dylibs to package f
 # `swift::tripleRequiresRPathForSwiftLibrariesInOS` defined in:
 # https://github.com/apple/swift/blob/main/lib/Basic/Platform.cpp.
 _MIN_OS_PLATFORM_SWIFT_PRESENCE = {
+    "catalyst": apple_common.dotted_version("26.0"),
     "ios": apple_common.dotted_version("26.0"),
     "macos": apple_common.dotted_version("26.0"),
     "tvos": apple_common.dotted_version("26.0"),

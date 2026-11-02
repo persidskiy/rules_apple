@@ -195,6 +195,19 @@ def merge_resource_infoplists(
         plisttool = plisttool,
     )
 
+def _catalyst_macos_version(ios_version):
+    """Returns the macOS version that a Mac Catalyst iOS deployment target runs on.
+
+    Approximates the `iOSMac_macOS` version map of the macOS SDK by major versions: iOS 13 is
+    macOS 10.15, iOS 14 through 18 are macOS 11 through 15, and iOS 26 onwards share the version.
+    """
+    major = int(ios_version.split(".")[0])
+    if major < 14:
+        return "10.15"
+    if major < 26:
+        return "{}.0".format(major - 3)
+    return ios_version
+
 def merge_root_infoplists(
         *,
         actions,
@@ -352,8 +365,12 @@ def merge_root_infoplists(
     if rule_descriptor.bundle_package_type:
         substitutions["PRODUCT_BUNDLE_PACKAGE_TYPE"] = rule_descriptor.bundle_package_type
 
+    minimum_deployment_os = platform_prerequisites.minimum_deployment_os
     if platform_prerequisites.platform_type == apple_common.platform_type.macos:
         plist_key = "LSMinimumSystemVersion"
+    elif platform_prerequisites.platform_type == apple_common.platform_type.catalyst:
+        plist_key = "LSMinimumSystemVersion"
+        minimum_deployment_os = _catalyst_macos_version(minimum_deployment_os)
     else:
         plist_key = "MinimumOSVersion"
 
@@ -369,7 +386,7 @@ def merge_root_infoplists(
             CFBundleSupportedPlatforms = [platform.name_in_plist],
             DTPlatformName = platform.name_in_plist.lower(),
             DTSDKName = platform_with_version,
-            **{plist_key: platform_prerequisites.minimum_deployment_os}
+            **{plist_key: minimum_deployment_os}
         ),
     )
 
